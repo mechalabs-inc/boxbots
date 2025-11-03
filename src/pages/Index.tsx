@@ -3,7 +3,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { Viewer3D } from "@/components/Viewer3D";
 import { ModeTabs } from "@/components/ModeTabs";
 import { NodeGraph } from "@/components/NodeGraph";
-import type { Node, Edge } from "reactflow";
+import JSZip from "jszip";
 import { toast } from "sonner";
 
 interface MeshFiles {
@@ -16,120 +16,99 @@ const Index = () => {
   const [selectedJoint, setSelectedJoint] = useState<string | null>(null);
   const [jointValues, setJointValues] = useState<Record<string, number>>({});
   const [availableJoints, setAvailableJoints] = useState<string[]>([]);
-  const [csvNodes, setCsvNodes] = useState<Node[]>([]);
-  const [csvEdges, setCsvEdges] = useState<Edge[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  // Load robot files on mount
-  useEffect(() => {
-    const loadRobotFiles = async () => {
-      try {
-        setIsLoading(true);
+  const handleFileUpload = (file: File) => {
+    setUrdfFile(file);
+  };
 
-        // Load URDF file using Vite's import
-        const urdfModule = await import("@/robot/robot.urdf?raw");
-        const urdfBlob = new Blob([urdfModule.default], {
-          type: "application/xml",
-        });
-        const urdfFile = new File([urdfBlob], "robot.urdf", {
-          type: "application/xml",
-        });
-        setUrdfFile(urdfFile);
-
-        // Dynamically load all mesh files from robot/assets folder using Vite's glob import
-        const meshModules = import.meta.glob("@/robot/assets/*.stl", {
-          as: "url",
-          eager: true,
-        });
-
-        const meshes: MeshFiles = {};
-        let loadedCount = 0;
-
-        // Fetch each mesh file and convert to Blob
-        for (const [path, url] of Object.entries(meshModules)) {
-          const filename = path.split("/").pop() || "";
-          if (filename) {
-            try {
-              const response = await fetch(url as string);
-              if (response.ok) {
-                const blob = await response.blob();
-                meshes[filename] = blob;
-                // Also store with full path for compatibility
-                meshes[`assets/${filename}`] = blob;
-                // Also store with /assets/ prefix for URDF loader
-                meshes[`/assets/${filename}`] = blob;
-                loadedCount++;
-              }
-            } catch (err) {
-              console.warn(`Failed to load mesh: ${filename}`, err);
-            }
-          }
-        }
-
-        console.log(`Loaded ${loadedCount} mesh files:`, Object.keys(meshes));
-        setMeshFiles(meshes);
-      } catch (error) {
-        console.error("Error loading robot files:", error);
-        toast.error("Failed to load robot files");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadRobotFiles();
-  }, []);
+  const handleSimulationUpload = (urdf: File, meshes: MeshFiles) => {
+    setUrdfFile(urdf);
+    setMeshFiles(meshes);
+  };
 
   const handleJointChange = (jointName: string, value: number) => {
-    setJointValues((prev) => ({
+    setJointValues(prev => ({
       ...prev,
-      [jointName]: value,
+      [jointName]: value
     }));
   };
 
-  const handleCsvNodesGenerated = (nodes: Node[], edges: Edge[]) => {
-    setCsvNodes(nodes);
-    setCsvEdges(edges);
-  };
+  // Auto-load simulation.zip on mount
+  useEffect(() => {
+    const loadSimulation = async () => {
+      try {
+        const response = await fetch('/simulation.zip');
+        const blob = await response.blob();
+        
+        const zip = new JSZip();
+        const contents = await zip.loadAsync(blob);
+        const meshFiles: MeshFiles = {};
+        let urdfFile: File | null = null;
+        let meshCount = 0;
+
+        for (const [filename, zipEntry] of Object.entries(contents.files)) {
+          if (zipEntry.dir) continue;
+
+          const fileBlob = await zipEntry.async('blob');
+          const name = filename.split('/').pop() || filename;
+
+          if (filename.endsWith('.urdf')) {
+            urdfFile = new File([fileBlob], name, { type: 'application/xml' });
+          } else if (filename.endsWith('.stl') || filename.endsWith('.dae') || filename.endsWith('.obj')) {
+            meshFiles[name] = fileBlob;
+            meshFiles[filename] = fileBlob;
+            meshFiles[filename.replace(/^[^/]*\//, '')] = fileBlob;
+            meshCount++;
+          }
+        }
+
+        if (urdfFile) {
+          setUrdfFile(urdfFile);
+          setMeshFiles(meshFiles);
+          toast.success(`Auto-loaded simulation: ${meshCount} meshes`);
+        }
+      } catch (error) {
+        console.error("Error auto-loading simulation:", error);
+        toast.error("Failed to auto-load simulation");
+      }
+    };
+
+    loadSimulation();
+  }, []);
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
-      <Sidebar isLoading={isLoading} />
-
-      <main className="flex-1 flex flex-col p-6 overflow-hidden gap-3">
-        {/* 3D Viewer - Equal height */}
-        <div className="flex-1 min-h-0">
-          <Viewer3D
-            urdfFile={urdfFile}
-            initialMeshFiles={meshFiles}
-            selectedJoint={selectedJoint}
-            jointValues={jointValues}
-            onJointSelect={setSelectedJoint}
-            onJointChange={handleJointChange}
-            onRobotJointsLoaded={(joints, angles) => {
-              setAvailableJoints(joints);
-              setJointValues(angles);
-              if (!selectedJoint && joints.length > 0)
-                setSelectedJoint(joints[0]);
-            }}
-            onCsvNodesGenerated={handleCsvNodesGenerated}
-          />
-        </div>
-
+      {/* <Sidebar onFileUpload={handleFileUpload} onSimulationUpload={handleSimulationUpload} />*/}
+      
+      <main className="flex-1 flex flex-col p-6 overflow-hidden">
+        {/* 3D Viewer */}
+        <Viewer3D 
+          urdfFile={urdfFile} 
+          initialMeshFiles={meshFiles}
+          selectedJoint={selectedJoint}
+          jointValues={jointValues}
+          onJointSelect={setSelectedJoint}
+          onJointChange={handleJointChange}
+          onRobotJointsLoaded={(joints, angles) => {
+            setAvailableJoints(joints);
+            setJointValues(angles);
+            if (!selectedJoint && joints.length > 0) setSelectedJoint(joints[0]);
+          }}
+        />
+        
         {/* Mode Tabs */}
-        <div className="flex-shrink-0">
+        <div className="mt-6 mb-2">
           <ModeTabs />
         </div>
-
-        {/* Node Graph - Equal height */}
-        <div className="flex-1 min-h-0 panel overflow-hidden">
-          <NodeGraph
+        
+        {/* Node Graph */}
+        <div className="flex-1 min-h-0 panel mt-4 overflow-hidden">
+          <NodeGraph 
             selectedJoint={selectedJoint}
             onJointChange={handleJointChange}
             jointValues={jointValues}
             onSelectJoint={setSelectedJoint}
             availableJoints={availableJoints}
-            initialCsvNodes={csvNodes}
-            initialCsvEdges={csvEdges}
           />
         </div>
       </main>
