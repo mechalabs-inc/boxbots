@@ -22,15 +22,16 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080
 
-# Copy lockfile and package.json so npm ci can work
+# Copy lockfile and package.json
 COPY package*.json ./
 
-# Copy only built output and node_modules from deps
-COPY --from=deps /app/node_modules ./node_modules
+# Install only production dependencies (including serve)
+RUN npm ci --omit=dev
+
+# Copy only built output
 COPY --from=builder /app/dist ./dist
 
-# If you only need production dependencies, prune instead of reinstalling
-RUN npm prune --omit=dev
-
 EXPOSE 8080
+
+# Use the start script which properly handles PORT env var
 CMD ["npm", "run", "start"]
