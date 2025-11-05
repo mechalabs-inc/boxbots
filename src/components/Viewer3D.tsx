@@ -18,7 +18,10 @@ interface Viewer3DProps {
   jointValues?: Record<string, number>;
   onJointSelect?: (jointName: string | null) => void;
   onJointChange?: (jointName: string, value: number) => void;
-  onRobotJointsLoaded?: (joints: string[], angles: Record<string, number>) => void;
+  onRobotJointsLoaded?: (
+    joints: string[],
+    angles: Record<string, number>
+  ) => void;
 }
 
 interface MeshFiles {
@@ -44,7 +47,7 @@ const LampHeadLight = ({ robot }: { robot: any }) => {
   const lightRef = useRef<THREE.PointLight>(null);
   const bulbRef = useRef<THREE.Mesh>(null);
   const lampHeadRef = useRef<THREE.Object3D | null>(null);
-  
+
   // ADJUST THIS NUMBER to move the light up/down to reach the lamp head
   // Positive values move UP (towards lamp head), negative values move DOWN
   const LIGHT_Z_OFFSET = 0.05; // Change this value to position the light correctly
@@ -52,59 +55,89 @@ const LampHeadLight = ({ robot }: { robot: any }) => {
   // Find the lamp head link (last link in kinematic chain, highest point)
   useEffect(() => {
     if (!robot) return;
-    
+
+    // First, try to find lamp head by name patterns
+    const rAny: any = robot as any;
     let lampHeadLink: THREE.Object3D | null = null;
-    
-    // Log all available links and joints for debugging
-    const robotAny = robot as any;
-    if (robotAny.links) {
-      console.log('🔍 Available links:', Object.keys(robotAny.links));
-    }
-    if (robotAny.joints) {
-      console.log('🔍 Available joints:', Object.keys(robotAny.joints));
-    }
-    
-    // Strategy: Find the link/joint with the highest world Z position (lamp head is at top)
-    let highestZ = -Infinity;
-    let highestObject: THREE.Object3D | null = null;
-    
-    robot.traverse((obj: THREE.Object3D) => {
-      // Update world matrices to get accurate positions
-      obj.updateWorldMatrix(true, false);
-      const worldPos = new THREE.Vector3();
-      obj.getWorldPosition(worldPos);
-      
-      // Check if this object has a name suggesting it's a link or joint
-      const isLinkOrJoint = obj.name && (
-        obj.name.toLowerCase().includes('link') || 
-        obj.name.toLowerCase().includes('joint')
+
+    // Check robot.links structure first
+    if (rAny.links) {
+      const linkNames = Object.keys(rAny.links);
+      console.log("Available links:", linkNames);
+
+      // Look for link names that suggest lamp head (head, lamp, top, end, etc.)
+      const lampHeadNames = linkNames.filter(
+        (name) =>
+          name.toLowerCase().includes("head") ||
+          name.toLowerCase().includes("lamp") ||
+          name.toLowerCase().includes("top") ||
+          name.toLowerCase().includes("end") ||
+          name.toLowerCase().includes("tip")
       );
-      
-      if (isLinkOrJoint && worldPos.z > highestZ) {
-        highestZ = worldPos.z;
-        highestObject = obj;
-        console.log('🎯 Found higher object:', obj.name, 'at Z:', worldPos.z.toFixed(3));
+
+      if (lampHeadNames.length > 0) {
+        // Use the first matching link
+        lampHeadLink = rAny.links[lampHeadNames[0]] as THREE.Object3D;
+        console.log("Found lamp head link by name:", lampHeadNames[0]);
+      } else if (linkNames.length > 0) {
+        // Fallback: use the last link (likely the end effector)
+        lampHeadLink = rAny.links[
+          linkNames[linkNames.length - 1]
+        ] as THREE.Object3D;
+        console.log(
+          "Using last link as lamp head:",
+          linkNames[linkNames.length - 1]
+        );
       }
-    });
-    
-    if (highestObject) {
-      lampHeadLink = highestObject;
-      console.log('✅ Selected lamp head link:', highestObject.name, 'at world Z:', highestZ.toFixed(3));
-    } else {
-      console.warn('⚠️ Could not find lamp head link');
     }
-    
+
+    // If not found in links, try finding by highest Z position
+    if (!lampHeadLink) {
+      let highestZ = -Infinity;
+      let highestObject: THREE.Object3D | null = null;
+
+      robot.traverse((obj: THREE.Object3D) => {
+        // Update world matrices to get accurate positions
+        obj.updateWorldMatrix(true, false);
+        const worldPos = new THREE.Vector3();
+        obj.getWorldPosition(worldPos);
+
+        // Check if this object has a name suggesting it's a link
+        const isLink =
+          obj.name &&
+          (obj.name.toLowerCase().includes("link") ||
+            (rAny.links && Object.keys(rAny.links).includes(obj.name)));
+
+        if (isLink && worldPos.z > highestZ) {
+          highestZ = worldPos.z;
+          highestObject = obj;
+        }
+      });
+
+      if (highestObject) {
+        lampHeadLink = highestObject;
+      }
+    }
+
     lampHeadRef.current = lampHeadLink;
-    
-    if (lampHeadLink && lightRef.current && bulbRef.current) {
-      // Attach light and bulb to lamp head
-      lampHeadLink.add(lightRef.current);
-      lampHeadLink.add(bulbRef.current);
-      console.log('✅ Attached light and bulb to lamp head:', lampHeadLink.name);
-    } else {
-      console.warn('⚠️ Could not attach light - lampHeadLink:', !!lampHeadLink, 'lightRef:', !!lightRef.current, 'bulbRef:', !!bulbRef.current);
-    }
-    
+
+    // Wait for refs to be ready before attaching
+    const attachLight = () => {
+      if (lampHeadLink && lightRef.current && bulbRef.current) {
+        // Attach light and bulb to lamp head
+        lampHeadLink.add(lightRef.current);
+        lampHeadLink.add(bulbRef.current);
+      } else if (lampHeadLink) {
+        // Retry after a short delay if refs aren't ready yet
+        setTimeout(attachLight, 50);
+      } else {
+        console.warn("⚠️ Could not find lamp head link");
+      }
+    };
+
+    // Try attaching immediately, and retry if needed
+    attachLight();
+
     return () => {
       if (lampHeadLink && lightRef.current) {
         lampHeadLink.remove(lightRef.current);
@@ -117,17 +150,17 @@ const LampHeadLight = ({ robot }: { robot: any }) => {
 
   useFrame(({ clock }) => {
     if (!currentLEDState || !lightRef.current || !bulbRef.current) return;
-    
+
     // Convert hex color to THREE.Color
     const color = new THREE.Color(currentLEDState.color);
     lightRef.current.color.copy(color);
-    
+
     // Apply brightness with pulsing effect
     const baseBrightness = currentLEDState.brightness / 100;
     const pulse = Math.sin(clock.getElapsedTime() * 3) * 0.1;
     const intensity = (baseBrightness + pulse * baseBrightness) * 5;
     lightRef.current.intensity = Math.max(0, intensity);
-    
+
     // Update bulb material
     const bulbMaterial = bulbRef.current.material as THREE.MeshBasicMaterial;
     bulbMaterial.color.copy(color);
@@ -141,7 +174,7 @@ const LampHeadLight = ({ robot }: { robot: any }) => {
   return (
     <>
       {/* Point light at lamp head position */}
-      <pointLight 
+      <pointLight
         ref={lightRef}
         position={[0, 0, LIGHT_Z_OFFSET]}
         distance={15}
@@ -151,33 +184,33 @@ const LampHeadLight = ({ robot }: { robot: any }) => {
       {/* Visible glowing bulb */}
       <mesh ref={bulbRef} position={[0, 0, LIGHT_Z_OFFSET]}>
         <sphereGeometry args={[0.03, 16, 16]} />
-        <meshBasicMaterial 
-          transparent 
-          opacity={0.9}
-        />
+        <meshBasicMaterial transparent opacity={0.9} />
       </mesh>
     </>
   );
 };
 
-const URDFModel = ({ 
-  file, 
+const URDFModel = ({
+  file,
   meshFiles,
-  animationFrames, 
-  isPlaying, 
+  animationFrames,
+  isPlaying,
   onRobotLoaded,
   selectedJoint,
   onSelectPart,
   onJointChange,
   onDragActiveChange,
 }: {
-  file: File; 
+  file: File;
   meshFiles: MeshFiles;
   animationFrames: AnimationFrame[] | null;
   isPlaying: boolean;
   onRobotLoaded: (robot: any) => void;
   selectedJoint?: string | null;
-  onSelectPart?: (payload: { linkName?: string; jointName?: string | null }) => void;
+  onSelectPart?: (payload: {
+    linkName?: string;
+    jointName?: string | null;
+  }) => void;
   onJointChange?: (jointName: string, value: number) => void;
   onDragActiveChange?: (active: boolean) => void;
 }) => {
@@ -191,34 +224,35 @@ const URDFModel = ({
     if (!file) return;
 
     const loader = new URDFLoader();
-    
+
     // Custom mesh loader that uses the uploaded files
-    loader.loadMeshCb = (path: string, manager: THREE.LoadingManager, onComplete: (mesh: THREE.Object3D | null, err?: Error) => void) => {
-      console.log('Looking for mesh:', path);
-      
+    loader.loadMeshCb = (
+      path: string,
+      manager: THREE.LoadingManager,
+      onComplete: (mesh: THREE.Object3D | null, err?: Error) => void
+    ) => {
       // Try multiple path variations
-      const filename = path.split('/').pop() || path;
+      const filename = path.split("/").pop() || path;
       const pathVariations = [
-        path,                                          // Full path as-is
-        filename,                                      // Just filename
-        path.replace(/^.*?\//, ''),                   // Remove first folder
-        path.replace(/^package:\/\/[^/]+\//, ''),     // Remove ROS package prefix
-        decodeURIComponent(path),                     // URL decoded
-        decodeURIComponent(filename)                  // URL decoded filename
+        path, // Full path as-is
+        filename, // Just filename
+        path.replace(/^.*?\//, ""), // Remove first folder
+        path.replace(/^package:\/\/[^/]+\//, ""), // Remove ROS package prefix
+        decodeURIComponent(path), // URL decoded
+        decodeURIComponent(filename), // URL decoded filename
       ];
-      
+
       let meshBlob: Blob | null = null;
       for (const variant of pathVariations) {
         if (meshFiles[variant]) {
           meshBlob = meshFiles[variant];
-          console.log(`Found mesh with variant: ${variant}`);
           break;
         }
       }
-      
+
       if (!meshBlob) {
         console.warn(`Mesh file not found. Tried:`, pathVariations);
-        console.warn('Available meshes:', Object.keys(meshFiles));
+        console.warn("Available meshes:", Object.keys(meshFiles));
         // Don't fail - just skip this mesh
         onComplete(null);
         return;
@@ -226,39 +260,35 @@ const URDFModel = ({
 
       const blobUrl = URL.createObjectURL(meshBlob);
       blobUrlsRef.current.push(blobUrl);
-      
+
       const stlLoader = new STLLoader(manager);
       stlLoader.load(
         blobUrl,
         (geometry) => {
-          console.log(`Successfully loaded geometry for ${filename}:`, {
-            vertices: geometry.attributes.position.count,
-            hasNormals: !!geometry.attributes.normal
-          });
-          
           // Ensure geometry has normals
           if (!geometry.attributes.normal) {
             geometry.computeVertexNormals();
           }
-          
+
           // Create mesh with a visible material
-          const material = new THREE.MeshStandardMaterial({ 
+          const material = new THREE.MeshStandardMaterial({
             color: 0xcccccc,
             metalness: 0.3,
             roughness: 0.7,
-            side: THREE.DoubleSide // Render both sides
+            side: THREE.DoubleSide, // Render both sides
           });
           const mesh = new THREE.Mesh(geometry, material);
           mesh.castShadow = true;
           mesh.receiveShadow = true;
-          
-          console.log(`Created mesh for ${filename}`, mesh);
+
           onComplete(mesh);
         },
         (progress) => {
-          console.log(`Loading ${filename}: ${(progress.loaded / progress.total * 100).toFixed(0)}%`);
+          // Progress callback - fires during loading, including when loaded === total (success)
+          // This is NOT an error, so we don't need to do anything here
         },
         (err) => {
+          // Error callback - only fires on actual errors
           console.error(`Error loading mesh ${filename}:`, err);
           onComplete(null, err instanceof Error ? err : new Error(String(err)));
         }
@@ -277,56 +307,80 @@ const URDFModel = ({
             groupRef.current.remove(groupRef.current.children[0]);
           }
           groupRef.current.add(robot);
-          
-          console.log('Robot added to scene, children count:', robot.children.length);
-          console.log('Robot structure:', robot);
-          
+
+          console.log("Robot structure:", robot);
+
           // Keep URDF Z-up to match CSV axes; no rotation
 
-          // Scale to fit within a 2-unit cube (optional) but KEEP anchor at origin
-          let box = new THREE.Box3().setFromObject(robot);
-          let size = box.getSize(new THREE.Vector3());
-          let maxDim = Math.max(size.x, size.y, size.z);
-
-          console.log('Robot bounding box (pre-scale):', { size, maxDim, min: box.min, max: box.max });
-
-          if (maxDim > 0 && isFinite(maxDim)) {
-            const scale = 2 / maxDim;
-            robot.scale.setScalar(scale);
-          } else {
-            console.warn('Invalid bounding box, default scale=1');
-            robot.scale.setScalar(1);
-          }
+          // Set initial scale to 1 (will be updated by setTimeout if valid)
+          robot.scale.setScalar(1);
 
           // Choose an anchor to place at world origin: prefer joint_2, then base_link/base, else robot root
           const rAny: any = robot as any;
-          const preferredAnchorNames = ['joint_2', 'joint2', 'base_link', 'base', 'world', 'root'];
+          const preferredAnchorNames = [
+            "joint_2",
+            "joint2",
+            "base_link",
+            "base",
+            "world",
+            "root",
+          ];
           let anchor: THREE.Object3D | null = null;
           for (const name of preferredAnchorNames) {
-            anchor = (rAny.joints?.[name] as THREE.Object3D) || robot.getObjectByName?.(name) || null;
-            if (anchor) { console.log('Anchor selected:', name); break; }
+            anchor =
+              (rAny.joints?.[name] as THREE.Object3D) ||
+              robot.getObjectByName?.(name) ||
+              null;
+            if (anchor) {
+              console.log("Anchor selected:", name);
+              break;
+            }
           }
           if (!anchor) {
             // Try first child that looks like a link, fallback to robot itself
             const linkNames = Object.keys(rAny.links || {});
-            anchor = linkNames.length ? (robot.getObjectByName(linkNames[0]) as THREE.Object3D) : robot;
-            console.log('Anchor fallback used:', (anchor as any)?.name || 'robot');
+            anchor = linkNames.length
+              ? (robot.getObjectByName(linkNames[0]) as THREE.Object3D)
+              : robot;
+            console.log(
+              "Anchor fallback used:",
+              (anchor as any)?.name || "robot"
+            );
           }
 
-          // After scaling, offset the whole robot so the anchor sits at exactly [0,0,0]
+          // Initial positioning - offset the whole robot so the anchor sits at exactly [0,0,0]
           anchor.updateWorldMatrix(true, true);
           const anchorWorld = new THREE.Vector3();
           anchor.getWorldPosition(anchorWorld);
           robot.position.addScaledVector(anchorWorld, -1);
-          console.log('Applied origin alignment to anchor at 0,0,0:', { anchor: (anchor as any).name, anchorWorld: anchorWorld.toArray(), robotPos: robot.position.toArray(), scale: robot.scale.x });
+
+          // Scale to fit within a 2-unit cube (optional) but KEEP anchor at origin
+          // Use setTimeout to allow meshes to fully load before calculating bounding box
+          setTimeout(() => {
+            const box = new THREE.Box3().setFromObject(robot);
+            const size = box.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z);
+
+            if (maxDim > 0 && isFinite(maxDim) && maxDim < 1e6) {
+              const scale = 2 / maxDim;
+              robot.scale.setScalar(scale);
+
+              // Recalculate anchor position after scaling
+              anchor!.updateWorldMatrix(true, true);
+              const anchorWorldAfterScale = new THREE.Vector3();
+              anchor!.getWorldPosition(anchorWorldAfterScale);
+              robot.position.addScaledVector(anchorWorldAfterScale, -1);
+            } else {
+              // If bounding box is invalid, keep scale at 1
+              robot.scale.setScalar(1);
+            }
+          }, 100);
 
           robotRef.current = robot;
           onRobotLoaded(robot);
-          
+
           const jointNames = Object.keys(robot.joints || {});
-          console.log('Available joints:', jointNames);
-          
-          toast.success(`Robot loaded with ${jointNames.length} joints`);
+          console.log("Available joints:", jointNames);
         }
       } catch (err) {
         console.error("Error loading URDF:", err);
@@ -339,13 +393,18 @@ const URDFModel = ({
 
     // Cleanup blob URLs on unmount
     return () => {
-      blobUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+      blobUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
     };
   }, [file, meshFiles, onRobotLoaded]);
 
   // Animation loop
   useFrame(() => {
-    if (!isPlaying || !animationFrames || !robotRef.current || animationFrames.length === 0) {
+    if (
+      !isPlaying ||
+      !animationFrames ||
+      !robotRef.current ||
+      animationFrames.length === 0
+    ) {
       return;
     }
 
@@ -360,7 +419,10 @@ const URDFModel = ({
     // Find the appropriate frame or interpolate
     let frameIndex = 0;
     for (let i = 0; i < animationFrames.length - 1; i++) {
-      if (currentTime >= animationFrames[i].timestamp && currentTime < animationFrames[i + 1].timestamp) {
+      if (
+        currentTime >= animationFrames[i].timestamp &&
+        currentTime < animationFrames[i + 1].timestamp
+      ) {
         frameIndex = i;
         break;
       }
@@ -373,12 +435,15 @@ const URDFModel = ({
     }
 
     const currentFrame = animationFrames[frameIndex];
-    const nextFrame = animationFrames[Math.min(frameIndex + 1, animationFrames.length - 1)];
-    
+    const nextFrame =
+      animationFrames[Math.min(frameIndex + 1, animationFrames.length - 1)];
+
     // Interpolate between frames
-    const t = nextFrame.timestamp !== currentFrame.timestamp
-      ? (currentTime - currentFrame.timestamp) / (nextFrame.timestamp - currentFrame.timestamp)
-      : 0;
+    const t =
+      nextFrame.timestamp !== currentFrame.timestamp
+        ? (currentTime - currentFrame.timestamp) /
+          (nextFrame.timestamp - currentFrame.timestamp)
+        : 0;
 
     const interpolatedJoints: Record<string, number> = {};
     for (const jointName in currentFrame.joints) {
@@ -393,7 +458,10 @@ const URDFModel = ({
     } else if (robotRef.current && robotRef.current.setJointValue) {
       // Fallback to individual joint setting
       for (const jointName in interpolatedJoints) {
-        robotRef.current.setJointValue(jointName, interpolatedJoints[jointName]);
+        robotRef.current.setJointValue(
+          jointName,
+          interpolatedJoints[jointName]
+        );
       }
     }
   });
@@ -409,7 +477,7 @@ const URDFModel = ({
 
   const clearHighlights = () => {
     highlightedMeshesRef.current.forEach((mesh) => {
-      const mat = (mesh.material as any);
+      const mat = mesh.material as any;
       if (mat && mat.emissive) mat.emissive.setHex(0x000000);
     });
     highlightedMeshesRef.current = [];
@@ -468,13 +536,19 @@ const URDFModel = ({
     const linkNames = new Set(Object.keys(robot.links || {}));
     let linkName: string | undefined;
     while (obj) {
-      if (linkNames.has(obj.name)) { linkName = obj.name; break; }
+      if (linkNames.has(obj.name)) {
+        linkName = obj.name;
+        break;
+      }
       obj = obj.parent;
     }
     let jointName: string | null = null;
     if (linkName) {
       for (const [jName, jObj] of Object.entries<any>(robot.joints || {})) {
-        if ((jObj.children || []).some((c: any) => c.name === linkName)) { jointName = jName; break; }
+        if ((jObj.children || []).some((c: any) => c.name === linkName)) {
+          jointName = jName;
+          break;
+        }
       }
       highlightLink(linkName);
     }
@@ -538,13 +612,13 @@ const PlaceholderLamp = () => {
         <cylinderGeometry args={[0.3, 0.3, 0.1, 32]} />
         <meshStandardMaterial color="#666666" />
       </mesh>
-      
+
       {/* Stand */}
       <mesh position={[0, 0.4, 0]}>
         <cylinderGeometry args={[0.05, 0.05, 0.6, 16]} />
         <meshStandardMaterial color="#888888" />
       </mesh>
-      
+
       {/* Lampshade */}
       <mesh position={[0, 0.8, 0]} rotation={[0, 0, 0]}>
         <coneGeometry args={[0.25, 0.3, 32]} />
@@ -554,17 +628,19 @@ const PlaceholderLamp = () => {
   );
 };
 
-export const Viewer3D = ({ 
-  urdfFile, 
+export const Viewer3D = ({
+  urdfFile,
   initialMeshFiles = {},
   selectedJoint = null,
   jointValues = {},
   onJointSelect,
   onJointChange,
-  onRobotJointsLoaded
+  onRobotJointsLoaded,
 }: Viewer3DProps) => {
   const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [animationFrames, setAnimationFrames] = useState<AnimationFrame[] | null>(null);
+  const [animationFrames, setAnimationFrames] = useState<
+    AnimationFrame[] | null
+  >(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [robot, setRobot] = useState<URDFRobot | null>(null);
   const [meshFiles, setMeshFiles] = useState<MeshFiles>(initialMeshFiles);
@@ -590,22 +666,27 @@ export const Viewer3D = ({
     const angles: Record<string, number> = {};
     joints.forEach((j) => {
       const jointObj: any = (robot as any).joints?.[j];
-      angles[j] = typeof jointObj?.angle === 'number' ? jointObj.angle : 0;
+      angles[j] = typeof jointObj?.angle === "number" ? jointObj.angle : 0;
     });
     // Update external callback
     onRobotJointsLoaded?.(joints, angles);
     // Update global store
     setAvailableJointsStore(joints);
     setStoreJointValues(angles);
-  }, [robot, onRobotJointsLoaded, setAvailableJointsStore, setStoreJointValues]);
+  }, [
+    robot,
+    onRobotJointsLoaded,
+    setAvailableJointsStore,
+    setStoreJointValues,
+  ]);
 
   // Apply joint values from props
   useEffect(() => {
     if (!robot) return;
     const r: any = robot as any;
-    if (typeof r.setJointValue !== 'function') return;
+    if (typeof r.setJointValue !== "function") return;
     for (const [jointName, value] of Object.entries(jointValues)) {
-      if (typeof value === 'number' && !Number.isNaN(value)) {
+      if (typeof value === "number" && !Number.isNaN(value)) {
         r.setJointValue(jointName, value);
       }
     }
@@ -615,9 +696,9 @@ export const Viewer3D = ({
   useEffect(() => {
     if (!robot) return;
     const r: any = robot as any;
-    if (typeof r.setJointValue !== 'function') return;
+    if (typeof r.setJointValue !== "function") return;
     for (const [jointName, value] of Object.entries(storeJointValues)) {
-      if (typeof value === 'number' && !Number.isNaN(value)) {
+      if (typeof value === "number" && !Number.isNaN(value)) {
         r.setJointValue(jointName, value);
       }
     }
@@ -636,7 +717,7 @@ export const Viewer3D = ({
     const reader = new FileReader();
     reader.onload = (e) => {
       const content = e.target?.result as string;
-      const lines = content.split('\n').filter((line) => line.trim());
+      const lines = content.split("\n").filter((line) => line.trim());
 
       if (lines.length < 2) {
         toast.error("Invalid CSV/POS format");
@@ -644,8 +725,10 @@ export const Viewer3D = ({
       }
 
       // Parse header
-      const headers = lines[0].split(',').map((h) => h.trim());
-      const timestampIndex = headers.findIndex((h) => h.toLowerCase() === 'timestamp');
+      const headers = lines[0].split(",").map((h) => h.trim());
+      const timestampIndex = headers.findIndex(
+        (h) => h.toLowerCase() === "timestamp"
+      );
       if (timestampIndex === -1) {
         toast.error("File must have a 'timestamp' column");
         return;
@@ -655,14 +738,16 @@ export const Viewer3D = ({
       const columnNames = headers
         .map((h) => h.trim())
         .filter((_, i) => i !== timestampIndex)
-        .map((h) => h.replace('.pos', '').trim());
+        .map((h) => h.replace(".pos", "").trim());
 
       // Peek at robot joints for mapping
       const robotAny: any = robot as any;
-      const robotJointKeys: string[] = robotAny ? Object.keys(robotAny.joints || {}) : [];
+      const robotJointKeys: string[] = robotAny
+        ? Object.keys(robotAny.joints || {})
+        : [];
       const actuatedJoints: string[] = robotJointKeys.filter((k) => {
         const j = robotAny?.joints?.[k];
-        return j && typeof j.angle === 'number';
+        return j && typeof j.angle === "number";
       });
 
       // Build mapping from CSV column name -> robot joint name
@@ -672,23 +757,29 @@ export const Viewer3D = ({
       });
       if (mapping.size !== columnNames.length && actuatedJoints.length) {
         // If robot joints are numeric like ['1','2',...] and counts match, map by order
-        const numericJoints = actuatedJoints.filter((n) => /^\d+$/.test(n)).sort((a, b) => Number(a) - Number(b));
-        const candidate = numericJoints.length >= columnNames.length ? numericJoints : actuatedJoints;
+        const numericJoints = actuatedJoints
+          .filter((n) => /^\d+$/.test(n))
+          .sort((a, b) => Number(a) - Number(b));
+        const candidate =
+          numericJoints.length >= columnNames.length
+            ? numericJoints
+            : actuatedJoints;
         if (candidate.length >= columnNames.length && mapping.size === 0) {
           columnNames.forEach((name, i) => mapping.set(name, candidate[i]));
         }
       }
 
       // Parse data rows collecting raw values
-      const rawFrames: { timestamp: number; joints: Record<string, number> }[] = [];
+      const rawFrames: { timestamp: number; joints: Record<string, number> }[] =
+        [];
       for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map((v) => v.trim());
+        const values = lines[i].split(",").map((v) => v.trim());
         if (values.length !== headers.length) continue;
         const ts = parseFloat(values[timestampIndex]);
         const joints: Record<string, number> = {};
         for (let j = 0; j < headers.length; j++) {
           if (j === timestampIndex) continue;
-          const colName = headers[j].replace('.pos', '').trim();
+          const colName = headers[j].replace(".pos", "").trim();
           const num = parseFloat(values[j]);
           joints[colName] = num;
         }
@@ -696,7 +787,7 @@ export const Viewer3D = ({
       }
 
       if (rawFrames.length === 0) {
-        toast.error('No data rows found');
+        toast.error("No data rows found");
         return;
       }
 
@@ -708,7 +799,10 @@ export const Viewer3D = ({
       let assumeDegrees = false;
       outer: for (const f of rawFrames) {
         for (const v of Object.values(f.joints)) {
-          if (Math.abs(v) > Math.PI * 2) { assumeDegrees = true; break outer; }
+          if (Math.abs(v) > Math.PI * 2) {
+            assumeDegrees = true;
+            break outer;
+          }
         }
       }
 
@@ -741,12 +835,17 @@ export const Viewer3D = ({
       }
 
       const jointNames = Object.keys(frames[0]?.joints || {});
-      console.log('Loaded animation joint names (mapped):', jointNames);
-      console.log('Available robot joints:', robot ? Object.keys((robot as any).joints || {}) : 'No robot loaded');
-      console.log('First frame (radians, ms):', frames[0]);
-      console.log('Last frame (radians, ms):', frames[frames.length - 1]);
+      console.log("Loaded animation joint names (mapped):", jointNames);
+      console.log(
+        "Available robot joints:",
+        robot ? Object.keys((robot as any).joints || {}) : "No robot loaded"
+      );
+      console.log("First frame (radians, ms):", frames[0]);
+      console.log("Last frame (radians, ms):", frames[frames.length - 1]);
 
-      toast.success(`Loaded ${frames.length} frames with ${jointNames.length} joints`);
+      toast.success(
+        `Loaded ${frames.length} frames with ${jointNames.length} joints`
+      );
     };
 
     reader.readAsText(file);
@@ -772,7 +871,9 @@ export const Viewer3D = ({
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-accent" />
           <span className="text-xs text-muted-foreground">
-            {robot ? `${Object.keys(robot.joints || {}).length} joints` : "No robot"}
+            {robot
+              ? `${Object.keys(robot.joints || {}).length} joints`
+              : "No robot"}
             {selectedJoint && ` • Selected: ${selectedJoint}`}
           </span>
         </div>
@@ -785,10 +886,17 @@ export const Viewer3D = ({
             className="hidden"
           />
           <label htmlFor="csv-upload">
-            <Button variant="ghost" size="sm" className="text-xs cursor-pointer" asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs cursor-pointer"
+              asChild
+            >
               <span>
                 <Upload className="w-3 h-3 mr-1.5" />
-                {csvFile ? csvFile.name.substring(0, 12) + '...' : 'Upload CSV/POS'}
+                {csvFile
+                  ? csvFile.name.substring(0, 12) + "..."
+                  : "Upload CSV/POS"}
               </span>
             </Button>
           </label>
@@ -798,7 +906,7 @@ export const Viewer3D = ({
       {/* 3D Viewer Area */}
       <div className="flex-1 bg-muted rounded-lg overflow-hidden relative">
         <Canvas
-          camera={{ position: [2, 2, 4], fov: 50 }}
+          camera={{ position: [-2, 4, 3], fov: 50 }}
           style={{ background: "hsl(var(--muted))" }}
           onCreated={({ scene, camera }) => {
             // Use Z-up like Plotly/URDF
@@ -809,18 +917,23 @@ export const Viewer3D = ({
           <ambientLight intensity={0.5} />
           <directionalLight position={[5, 5, 5]} intensity={0.8} castShadow />
           <directionalLight position={[-5, 3, -5]} intensity={0.3} />
-          
+
           {urdfFile ? (
             <>
-              <URDFModel 
-                file={urdfFile} 
+              <URDFModel
+                file={urdfFile}
                 meshFiles={meshFiles}
                 animationFrames={animationFrames}
                 isPlaying={isPlaying}
                 onRobotLoaded={setRobot}
                 selectedJoint={selectedJoint}
-                onSelectPart={({ jointName }) => onJointSelect?.(jointName ?? null)}
-                onJointChange={(j, v) => { onJointChange?.(j, v); setStoreJointValue(j, v); }}
+                onSelectPart={({ jointName }) =>
+                  onJointSelect?.(jointName ?? null)
+                }
+                onJointChange={(j, v) => {
+                  onJointChange?.(j, v);
+                  setStoreJointValue(j, v);
+                }}
                 onDragActiveChange={setIsDraggingJoint}
               />
               {robot && <LampHeadLight robot={robot} />}
@@ -828,24 +941,30 @@ export const Viewer3D = ({
           ) : (
             <PlaceholderLamp />
           )}
-          
+
           {/* Axes helper (X=red, Y=green, Z=blue) */}
           <axesHelper args={[2]} />
-          <OrbitControls makeDefault enabled={!isDraggingJoint} target={[0,0,0]} />
+          <OrbitControls
+            makeDefault
+            enabled={!isDraggingJoint}
+            target={[0, 0, 0]}
+          />
         </Canvas>
-        
+
         {!urdfFile && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span className="text-xs text-muted-foreground/60">Upload URDF to view model</span>
+            <span className="text-xs text-muted-foreground/60">
+              Upload URDF to view model
+            </span>
           </div>
         )}
       </div>
 
       {/* Bottom Controls */}
       <div className="flex items-center justify-center gap-3 mt-4">
-        <Button 
-          variant="outline" 
-          size="sm" 
+        <Button
+          variant="outline"
+          size="sm"
           className="text-xs px-6"
           onClick={() => {
             setIsPlaying(false);
@@ -856,8 +975,8 @@ export const Viewer3D = ({
         >
           Reset
         </Button>
-        <Button 
-          size="sm" 
+        <Button
+          size="sm"
           className="bg-primary text-primary-foreground text-xs px-6"
           onClick={handleRun}
           disabled={!urdfFile || !animationFrames}

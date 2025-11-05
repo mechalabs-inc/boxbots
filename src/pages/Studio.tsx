@@ -10,26 +10,17 @@ interface MeshFiles {
   [key: string]: Blob;
 }
 
-const Index = () => {
+const Studio = () => {
   const [urdfFile, setUrdfFile] = useState<File | null>(null);
   const [meshFiles, setMeshFiles] = useState<MeshFiles>({});
   const [selectedJoint, setSelectedJoint] = useState<string | null>(null);
   const [jointValues, setJointValues] = useState<Record<string, number>>({});
   const [availableJoints, setAvailableJoints] = useState<string[]>([]);
 
-  const handleFileUpload = (file: File) => {
-    setUrdfFile(file);
-  };
-
-  const handleSimulationUpload = (urdf: File, meshes: MeshFiles) => {
-    setUrdfFile(urdf);
-    setMeshFiles(meshes);
-  };
-
   const handleJointChange = (jointName: string, value: number) => {
-    setJointValues(prev => ({
+    setJointValues((prev) => ({
       ...prev,
-      [jointName]: value
+      [jointName]: value,
     }));
   };
 
@@ -37,9 +28,9 @@ const Index = () => {
   useEffect(() => {
     const loadSimulation = async () => {
       try {
-        const response = await fetch('/simulation.zip');
+        const response = await fetch("/simulation.zip");
         const blob = await response.blob();
-        
+
         const zip = new JSZip();
         const contents = await zip.loadAsync(blob);
         const meshFiles: MeshFiles = {};
@@ -49,15 +40,19 @@ const Index = () => {
         for (const [filename, zipEntry] of Object.entries(contents.files)) {
           if (zipEntry.dir) continue;
 
-          const fileBlob = await zipEntry.async('blob');
-          const name = filename.split('/').pop() || filename;
+          const fileBlob = await zipEntry.async("blob");
+          const name = filename.split("/").pop() || filename;
 
-          if (filename.endsWith('.urdf')) {
-            urdfFile = new File([fileBlob], name, { type: 'application/xml' });
-          } else if (filename.endsWith('.stl') || filename.endsWith('.dae') || filename.endsWith('.obj')) {
+          if (filename.endsWith(".urdf")) {
+            urdfFile = new File([fileBlob], name, { type: "application/xml" });
+          } else if (
+            filename.endsWith(".stl") ||
+            filename.endsWith(".dae") ||
+            filename.endsWith(".obj")
+          ) {
             meshFiles[name] = fileBlob;
             meshFiles[filename] = fileBlob;
-            meshFiles[filename.replace(/^[^/]*\//, '')] = fileBlob;
+            meshFiles[filename.replace(/^[^/]*\//, "")] = fileBlob;
             meshCount++;
           }
         }
@@ -65,7 +60,6 @@ const Index = () => {
         if (urdfFile) {
           setUrdfFile(urdfFile);
           setMeshFiles(meshFiles);
-          toast.success(`Auto-loaded simulation: ${meshCount} meshes`);
         }
       } catch (error) {
         console.error("Error auto-loading simulation:", error);
@@ -77,13 +71,11 @@ const Index = () => {
   }, []);
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background">
-      {/* <Sidebar onFileUpload={handleFileUpload} onSimulationUpload={handleSimulationUpload} />*/}
-      
-      <main className="flex-1 flex flex-col p-6 overflow-hidden">
+    <div className="h-full w-full bg-background">
+      <main className="flex flex-col h-full p-6 overflow-hidden">
         {/* 3D Viewer */}
-        <Viewer3D 
-          urdfFile={urdfFile} 
+        <Viewer3D
+          urdfFile={urdfFile}
           initialMeshFiles={meshFiles}
           selectedJoint={selectedJoint}
           jointValues={jointValues}
@@ -92,18 +84,19 @@ const Index = () => {
           onRobotJointsLoaded={(joints, angles) => {
             setAvailableJoints(joints);
             setJointValues(angles);
-            if (!selectedJoint && joints.length > 0) setSelectedJoint(joints[0]);
+            if (!selectedJoint && joints.length > 0)
+              setSelectedJoint(joints[0]);
           }}
         />
-        
+
         {/* Mode Tabs */}
         <div className="mt-6 mb-2">
           <ModeTabs />
         </div>
-        
+
         {/* Node Graph */}
         <div className="flex-1 min-h-0 panel mt-4 overflow-hidden">
-          <NodeGraph 
+          <NodeGraph
             selectedJoint={selectedJoint}
             onJointChange={handleJointChange}
             jointValues={jointValues}
@@ -116,4 +109,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default Studio;

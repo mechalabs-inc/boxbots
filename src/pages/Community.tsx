@@ -1,11 +1,21 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useTemplateManager, type BehaviorTemplate } from "@/hooks/useTemplateManager";
-import { Download, Upload, Trash2, ArrowLeft, Search, FileJson } from "lucide-react";
+import {
+  useTemplateManager,
+  type BehaviorTemplate,
+} from "@/hooks/useTemplateManager";
+import { Download, Upload, Trash2, Search, FileJson } from "lucide-react";
 import { toast } from "sonner";
 
 const exampleTemplates: BehaviorTemplate[] = [
@@ -19,12 +29,12 @@ const exampleTemplates: BehaviorTemplate[] = [
     nodes: [],
     edges: [],
   },
-  
 ];
 
 export default function Community() {
   const navigate = useNavigate();
-  const { templates, deleteTemplate, exportTemplate, importTemplate } = useTemplateManager();
+  const { templates, deleteTemplate, exportTemplate, importTemplate } =
+    useTemplateManager();
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,7 +57,9 @@ export default function Community() {
     (t) =>
       t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+      t.tags.some((tag) =>
+        tag.toLowerCase().includes(searchQuery.toLowerCase())
+      )
   );
 
   return (
@@ -55,10 +67,6 @@ export default function Community() {
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="mb-4">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Editor
-            </Button>
             <h1 className="text-4xl font-bold">Behavior Community</h1>
             <p className="text-muted-foreground mt-2">
               Explore, share, and remix robot behaviors with the community
@@ -95,13 +103,17 @@ export default function Community() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredTemplates.map((template) => {
-            const isExample = exampleTemplates.some((t) => t.id === template.id);
+            const isExample = exampleTemplates.some(
+              (t) => t.id === template.id
+            );
             return (
               <Card key={template.id} className="flex flex-col">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="text-xl mb-2">{template.name}</CardTitle>
+                      <CardTitle className="text-xl mb-2">
+                        {template.name}
+                      </CardTitle>
                       <CardDescription>{template.description}</CardDescription>
                     </div>
                     {isExample && (
@@ -119,7 +131,9 @@ export default function Community() {
                     </div>
                     <div className="text-sm">
                       <span className="text-muted-foreground">Created:</span>{" "}
-                      <span>{new Date(template.createdAt).toLocaleDateString()}</span>
+                      <span>
+                        {new Date(template.createdAt).toLocaleDateString()}
+                      </span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {template.tags.map((tag) => (
@@ -164,7 +178,8 @@ export default function Community() {
         {filteredTemplates.length === 0 && (
           <div className="text-center py-16">
             <p className="text-muted-foreground text-lg">
-              No templates found. Try adjusting your search or import a template to get started.
+              No templates found. Try adjusting your search or import a template
+              to get started.
             </p>
           </div>
         )}
