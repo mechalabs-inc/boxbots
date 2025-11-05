@@ -1,31 +1,36 @@
 # syntax=docker/dockerfile:1
-# DEPS
+
+# 1. Dependencies
 FROM node:22-slim AS deps
 WORKDIR /app
 
-# Install dependencies separately for better caching
 COPY package*.json ./
 RUN npm ci
 
-# BUILD
+# 2. Build
 FROM node:22-slim AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . ./
-
 RUN npm run build
 
-# RUNNER
+# 3. Production runner
 FROM node:22-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-# Cloud Run sets PORT; default to 8080 for local
 ENV PORT=8080
 
-# Install only production deps in the final image
-RUN npm ci --omit=dev
+# Copy lockfile and package.json so npm ci can work
+COPY package*.json ./
+
+# Copy only built output and node_modules from deps
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+
+# If you only need production dependencies, prune instead of reinstalling
+RUN npm prune --omit=dev
 
 EXPOSE 8080
 CMD ["npm", "run", "start"]
