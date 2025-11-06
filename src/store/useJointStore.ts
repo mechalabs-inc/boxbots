@@ -101,12 +101,16 @@ export const useJointStore = create<JointStore>((set, get) => ({
     }),
   setIsAnimating: (isAnimating) => set({ isAnimating }),
   setActiveNodeIds: (nodeIds) => set({ activeNodeIds: nodeIds }),
-  addActiveNodeId: (nodeId) => set((s) => ({ 
-    activeNodeIds: s.activeNodeIds.includes(nodeId) ? s.activeNodeIds : [...s.activeNodeIds, nodeId] 
-  })),
-  removeActiveNodeId: (nodeId) => set((s) => ({ 
-    activeNodeIds: s.activeNodeIds.filter(id => id !== nodeId) 
-  })),
+  addActiveNodeId: (nodeId) =>
+    set((s) => ({
+      activeNodeIds: s.activeNodeIds.includes(nodeId)
+        ? s.activeNodeIds
+        : [...s.activeNodeIds, nodeId],
+    })),
+  removeActiveNodeId: (nodeId) =>
+    set((s) => ({
+      activeNodeIds: s.activeNodeIds.filter((id) => id !== nodeId),
+    })),
   clearActiveNodeIds: () => set({ activeNodeIds: [] }),
   setCurrentLEDState: (led) => set({ currentLEDState: led }),
 }));

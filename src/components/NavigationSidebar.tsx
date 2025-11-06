@@ -147,7 +147,7 @@ export const NavigationSidebar = () => {
         </div>
 
         <div className="flex items-center gap-3 px-3 py-2">
-          <span className="text-sm font-semibold text-gray-600">Studio</span>
+          <span className="text-sm font-semibold text-gray-600">Workflows</span>
         </div>
 
         {/* Studio */}
@@ -169,7 +169,7 @@ export const NavigationSidebar = () => {
             )}
           />
           <span className="transition-colors group-hover:text-gray-900">
-            Create workflows
+            What are workflows?
           </span>
         </Link>
 

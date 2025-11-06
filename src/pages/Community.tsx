@@ -19,16 +19,16 @@ import { Download, Upload, Trash2, Search, FileJson } from "lucide-react";
 import { toast } from "sonner";
 
 const exampleTemplates: BehaviorTemplate[] = [
-  {
-    id: "example_1",
-    name: "Wave Gesture",
-    description: "A friendly waving motion ",
-    author: "team",
-    createdAt: "2025-01-15T10:00:00Z",
-    tags: ["gesture"],
-    nodes: [],
-    edges: [],
-  },
+  // {
+  //   id: "example_1",
+  //   name: "Wave Gesture",
+  //   description: "A friendly waving motion ",
+  //   author: "team",
+  //   createdAt: "2025-01-15T10:00:00Z",
+  //   tags: ["gesture"],
+  //   nodes: [],
+  //   edges: [],
+  // },
 ];
 
 export default function Community() {
@@ -69,7 +69,7 @@ export default function Community() {
           <div>
             <h1 className="text-4xl font-bold">Behavior Community</h1>
             <p className="text-muted-foreground mt-2">
-              Explore, share, and remix robot behaviors with the community
+              Explore and upload workflows with the community
             </p>
           </div>
           <div className="flex gap-2">
@@ -83,7 +83,7 @@ export default function Community() {
             <Button asChild variant="outline">
               <label htmlFor="import-template" className="cursor-pointer">
                 <Upload className="w-4 h-4 mr-2" />
-                Import Template
+                Upload
               </label>
             </Button>
           </div>
@@ -156,7 +156,7 @@ export default function Community() {
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => exportTemplate(template)}
+                    onClick={async () => await exportTemplate(template)}
                   >
                     <Download className="w-4 h-4" />
                   </Button>

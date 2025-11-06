@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { Viewer3D } from "@/components/Viewer3D";
 import { ModeTabs } from "@/components/ModeTabs";
-import { NodeGraph } from "@/components/NodeGraph";
+import { WorkflowNodeGraph } from "@/components/WorkflowNodeGraph";
 import JSZip from "jszip";
 import { toast } from "sonner";
 
@@ -74,36 +74,22 @@ const Studio = () => {
     <div className="h-full w-full bg-background">
       <main className="flex flex-col h-full p-6 overflow-hidden">
         {/* 3D Viewer */}
-        <Viewer3D
-          urdfFile={urdfFile}
-          initialMeshFiles={meshFiles}
-          selectedJoint={selectedJoint}
-          jointValues={jointValues}
-          onJointSelect={setSelectedJoint}
-          onJointChange={handleJointChange}
-          onRobotJointsLoaded={(joints, angles) => {
-            setAvailableJoints(joints);
-            setJointValues(angles);
-            if (!selectedJoint && joints.length > 0)
-              setSelectedJoint(joints[0]);
-          }}
-        />
-
-        {/* Mode Tabs */}
-        <div className="mt-6 mb-2">
-          <ModeTabs />
-        </div>
-
-        {/* Node Graph */}
-        <div className="flex-1 min-h-0 panel mt-4 overflow-hidden">
-          <NodeGraph
+        {/* <div className="h-[40vh] min-h-[200px] flex-shrink-0">
+          <Viewer3D
+            urdfFile={urdfFile}
+            initialMeshFiles={meshFiles}
             selectedJoint={selectedJoint}
-            onJointChange={handleJointChange}
             jointValues={jointValues}
-            onSelectJoint={setSelectedJoint}
-            availableJoints={availableJoints}
+            onJointSelect={setSelectedJoint}
+            onJointChange={handleJointChange}
+            onRobotJointsLoaded={(joints, angles) => {
+              setAvailableJoints(joints);
+              setJointValues(angles);
+              if (!selectedJoint && joints.length > 0)
+                setSelectedJoint(joints[0]);
+            }}
           />
-        </div>
+        </div> */}
       </main>
     </div>
   );
