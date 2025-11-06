@@ -52,7 +52,8 @@ export const useWorkflowManager = () => {
           try {
             // Fetch the workflow content from storage
             const content = await workflowApi.fetchWorkflowContent(
-              workflow.storage_link
+              workflow.storage_link,
+              workflow.id
             );
             return {
               id: workflow.id,
@@ -219,7 +220,8 @@ export const useWorkflowManager = () => {
       if (USE_API && workflow.storage_link) {
         try {
           const freshContent = await workflowApi.fetchWorkflowContent(
-            workflow.storage_link
+            workflow.storage_link,
+            workflow.id
           );
           dataToExport = {
             ...workflow,

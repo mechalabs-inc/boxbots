@@ -60,6 +60,36 @@ export const workflowApi = {
     return response.json();
   },
 
+  // Upload a complete workflow folder as a zip file
+  async uploadFolder(
+    zipFile: File,
+    metadata: { 
+      name: string; 
+      description: string; 
+      author: string;
+      folderName: string;
+    }
+  ): Promise<Workflow & { uploaded_files?: { [filename: string]: string } }> {
+    const formData = new FormData();
+    formData.append("file", zipFile);
+    formData.append("name", metadata.name);
+    formData.append("description", metadata.description);
+    formData.append("author", metadata.author);
+    formData.append("folderName", metadata.folderName);
+
+    const response = await fetch(`${API_URL}/api/workflows/upload-folder`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to upload workflow folder");
+    }
+
+    return response.json();
+  },
+
   // Create a workflow with existing storage link
   async create(data: CreateWorkflowDTO): Promise<Workflow> {
     const response = await fetch(`${API_URL}/api/workflows`, {
@@ -107,12 +137,33 @@ export const workflowApi = {
   },
 
   // Fetch workflow file content from storage link
-  async fetchWorkflowContent(storageLink: string): Promise<any> {
+  // Note: storage_link now points to folder, so we use the content endpoint
+  async fetchWorkflowContent(storageLink: string, workflowId?: string): Promise<any> {
+    // If workflowId is provided, use the content endpoint
+    if (workflowId) {
+      const response = await fetch(`${API_URL}/api/workflows/${workflowId}/content`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch workflow content");
+      }
+      return response.json();
+    }
+    
+    // Fallback: try to fetch directly from storage link (for backwards compatibility)
     const response = await fetch(storageLink);
     if (!response.ok) {
       throw new Error("Failed to fetch workflow content");
     }
     return response.json();
+  },
+
+  // Download workflow folder as zip from GCP
+  async downloadFolder(id: string): Promise<Blob> {
+    const response = await fetch(`${API_URL}/api/workflows/${id}/download`);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to download workflow folder");
+    }
+    return response.blob();
   },
 };
 

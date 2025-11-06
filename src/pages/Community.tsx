@@ -1,5 +1,4 @@
 import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -28,17 +27,16 @@ import {
   Download,
   Upload,
   Search,
-  FileJson,
   FolderUp,
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import JSZip from "jszip";
+import { workflowApi } from "@/lib/api";
 
 export default function Community() {
-  const navigate = useNavigate();
-  const { workflows, exportWorkflow, importWorkflow } = useWorkflowManager();
+  const { workflows, loadWorkflows } = useWorkflowManager();
   const [searchQuery, setSearchQuery] = useState("");
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
@@ -107,60 +105,46 @@ export default function Community() {
         type: "application/zip",
       });
 
-      // TODO: Upload to server - for now just import the workflow.json
-      await importWorkflow(workflowJsonFile);
+      // Read workflow.json to get metadata
+      const workflowText = await workflowJsonFile.text();
+      const workflowData = JSON.parse(workflowText);
 
+      // Upload to server
+      const uploadedWorkflow = await workflowApi.uploadFolder(zipFile, {
+        name: workflowData.name || folderName,
+        description: workflowData.description || "Imported workflow",
+        author: workflowData.author || "Unknown",
+        folderName: folderName,
+      });
+
+      // Reload workflows to include the newly uploaded one
+      await loadWorkflows();
+
+      toast.success(`Successfully uploaded ${folderName} to the community!`);
       setShowUploadDialog(false);
     } catch (error) {
       console.error("Failed to process folder:", error);
-      toast.error("Failed to process workflow folder");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to upload workflow folder"
+      );
     } finally {
       setIsValidating(false);
       event.target.value = ""; // Reset input
     }
   };
 
-  const handleLoadWorkflow = (workflow: BehaviorWorkflow) => {
-    // Store selected workflow in sessionStorage to load in main page
-    sessionStorage.setItem("loadWorkflow", JSON.stringify(workflow));
-    navigate("/");
-    toast.success(`Loading "${workflow.name}" behavior...`);
-  };
-
   const handleExportAsFolder = async (workflow: BehaviorWorkflow) => {
     try {
-      // Create a zip file with the workflow structure
-      const zip = new JSZip();
-      const folderName = workflow.name.replace(/\s+/g, "_");
-      const folder = zip.folder(folderName);
+      // Download zip from GCP via backend
+      const zipBlob = await workflowApi.downloadFolder(workflow.id);
 
-      // Add workflow.json
-      const workflowData = {
-        name: workflow.name,
-        description: workflow.description,
-        author: workflow.author,
-        nodes: workflow.nodes,
-        edges: workflow.edges,
-        tags: workflow.tags,
-      };
-      folder?.file("workflow.json", JSON.stringify(workflowData, null, 2));
-
-      // Add placeholder tools.py
-      const toolsPyContent = `# Tools for ${workflow.name}
-# Add your custom tools here
-
-def example_tool():
-    """Example tool function"""
-    pass
-`;
-      folder?.file("tools.py", toolsPyContent);
-
-      // Generate zip and trigger download
-      const zipBlob = await zip.generateAsync({ type: "blob" });
+      // Trigger download
       const url = URL.createObjectURL(zipBlob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${folderName}.zip`;
+      link.download = `${workflow.name.replace(/\s+/g, "_")}.zip`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -168,8 +152,12 @@ def example_tool():
 
       toast.success("Workflow folder downloaded!");
     } catch (error) {
-      console.error("Failed to export workflow:", error);
-      toast.error("Failed to export workflow");
+      console.error("Failed to download workflow folder:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to download workflow folder"
+      );
     }
   };
 
@@ -260,14 +248,6 @@ def example_tool():
                   </div>
                 </CardContent>
                 <CardFooter className="flex gap-2">
-                  <Button
-                    variant="default"
-                    className="flex-1"
-                    onClick={() => handleLoadWorkflow(workflow)}
-                  >
-                    <FileJson className="w-4 h-4 mr-2" />
-                    Load
-                  </Button>
                   <Button
                     variant="outline"
                     size="icon"
