@@ -1,0 +1,95 @@
+// {
+//   "id": "greeting_workflow",
+//   "name": "Simple Greeting Workflow",
+//   "description": "A basic workflow demonstrating normal and conditional edges",
+//   "author": "team",
+//   "createdAt": "2025-11-06T00:00:00Z",
+//   "state_schema": {
+//     "user_mood": {
+//       "type": "string",
+//       "default": "neutral"
+//     }
+//   },
+//   "nodes": [
+//     {
+//       "id": "greet_user",
+//       "intent": "Greet the user warmly and ask how they're feeling today",
+//       "preferred_actions": ["speak", "play_recording"]
+//     },
+//     {
+//       "id": "detect_mood",
+//       "intent": "Listen to the user's response and determine their mood (happy, sad, or neutral)",
+//       "preferred_actions": ["listen"]
+//     },
+//     {
+//       "id": "respond_happy",
+//       "intent": "User is happy! Show an excited animation with bright yellow light and enthusiastic movements",
+//       "preferred_actions": ["set_rgb_solid", "play_recording"]
+//     },
+//     {
+//       "id": "respond_sad",
+//       "intent": "User is sad. Show a gentle, comforting animation with soft blue light and slow movements",
+//       "preferred_actions": ["set_rgb_solid", "play_recording"]
+//     },
+//     {
+//       "id": "respond_neutral",
+//       "intent": "User is neutral. Show a calm animation with green light",
+//       "preferred_actions": ["set_rgb_solid", "play_recording"]
+//     },
+//     {
+//       "id": "farewell",
+//       "intent": "Say goodbye to the user and wish them well",
+//       "preferred_actions": ["speak", "play_recording"]
+//     }
+//   ],
+//   "edges": [
+//     {
+//       "id": "start",
+//       "source": "START",
+//       "target": "greet_user",
+//       "type": "normal"
+//     },
+//     {
+//       "id": "e1",
+//       "source": "greet_user",
+//       "target": "detect_mood",
+//       "type": "normal"
+//     },
+//     {
+//       "id": "e2",
+//       "source": "detect_mood",
+//       "target": {
+//         "happy": "respond_happy",
+//         "sad": "respond_sad",
+//         "neutral": "respond_neutral"
+//       },
+//       "state_key": "user_mood",
+//       "type": "condition"
+//     },
+//     {
+//       "id": "e3",
+//       "source": "respond_happy",
+//       "target": "farewell",
+//       "type": "normal"
+//     },
+//     {
+//       "id": "e4",
+//       "source": "respond_sad",
+//       "target": "farewell",
+//       "type": "normal"
+//     },
+//     {
+//       "id": "e5",
+//       "source": "respond_neutral",
+//       "target": "farewell",
+//       "type": "normal"
+//     },
+//     {
+//       "id": "end",
+//       "source": "farewell",
+//       "target": "END",
+//       "type": "normal"
+//     }
+//   ]
+// }
+

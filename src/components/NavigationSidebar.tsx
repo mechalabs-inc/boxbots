@@ -150,12 +150,12 @@ export const NavigationSidebar = () => {
           <span className="text-sm font-semibold text-gray-600">Workflows</span>
         </div>
 
-        {/* Studio */}
+        {/* Workflow info */}
         <Link
-          to="/studio"
+          to="/workflow-info"
           className={cn(
             "group flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-all relative hover:bg-gray-50 mt-2",
-            isActive("/studio")
+            isActive("/workflow-info")
               ? "bg-orange-50 text-gray-900 border-l-4 border-l-orange-500 ml-0 pl-2 font-semibold"
               : "ml-1"
           )}
@@ -163,7 +163,7 @@ export const NavigationSidebar = () => {
           <Cpu
             className={cn(
               "h-4 w-4 transition-all",
-              isActive("/studio")
+              isActive("/workflow-info")
                 ? "text-orange-600 stroke-[2.5]"
                 : "text-sidebar-foreground stroke-[2] group-hover:stroke-[2.4]"
             )}

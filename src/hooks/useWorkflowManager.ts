@@ -3,7 +3,7 @@ import type { Node, Edge } from "reactflow";
 import { toast } from "sonner";
 import { workflowApi } from "@/lib/api";
 
-export interface BehaviorTemplate {
+export interface BehaviorWorkflow {
   id: string;
   name: string;
   description: string;
@@ -15,28 +15,28 @@ export interface BehaviorTemplate {
   storage_link?: string; // Link to the workflow file in storage
 }
 
-const STORAGE_KEY = "robot-behavior-templates";
+const STORAGE_KEY = "robot-behavior-workflows";
 const USE_API = true; // Set to false to use local storage instead
 
-export const useTemplateManager = () => {
-  const [templates, setTemplates] = useState<BehaviorTemplate[]>([]);
+export const useWorkflowManager = () => {
+  const [workflows, setWorkflows] = useState<BehaviorWorkflow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    loadTemplates();
+    loadWorkflows();
   }, []);
 
-  const loadTemplates = async () => {
+  const loadWorkflows = async () => {
     if (!USE_API) {
       // Fallback to local storage
       try {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
-          setTemplates(JSON.parse(stored));
+          setWorkflows(JSON.parse(stored));
         }
       } catch (error) {
-        console.error("Failed to load templates:", error);
-        toast.error("Failed to load templates");
+        console.error("Failed to load workflows:", error);
+        toast.error("Failed to load workflows");
       }
       return;
     }
@@ -44,11 +44,11 @@ export const useTemplateManager = () => {
     // Load from API
     try {
       setIsLoading(true);
-      const workflows = await workflowApi.list();
+      const workflowsFromAPI = await workflowApi.list();
 
-      // Transform workflows to BehaviorTemplate format
-      const templatesFromAPI = await Promise.all(
-        workflows.map(async (workflow) => {
+      // Transform workflows to BehaviorWorkflow format
+      const workflows = await Promise.all(
+        workflowsFromAPI.map(async (workflow) => {
           try {
             // Fetch the workflow content from storage
             const content = await workflowApi.fetchWorkflowContent(
@@ -86,16 +86,16 @@ export const useTemplateManager = () => {
         })
       );
 
-      setTemplates(templatesFromAPI);
+      setWorkflows(workflows);
     } catch (error) {
-      console.error("Failed to load templates from API:", error);
+      console.error("Failed to load workflows from API:", error);
       toast.error("Failed to load workflows from server");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const saveTemplate = async (
+  const saveWorkflow = async (
     name: string,
     description: string,
     author: string,
@@ -106,8 +106,8 @@ export const useTemplateManager = () => {
     if (!USE_API) {
       // Fallback to local storage
       try {
-        const newTemplate: BehaviorTemplate = {
-          id: `template_${Date.now()}`,
+        const newWorkflow: BehaviorWorkflow = {
+          id: `workflow_${Date.now()}`,
           name,
           description,
           author,
@@ -117,14 +117,14 @@ export const useTemplateManager = () => {
           tags,
         };
 
-        const updatedTemplates = [...templates, newTemplate];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedTemplates));
-        setTemplates(updatedTemplates);
-        toast.success("Template saved successfully!");
-        return newTemplate;
+        const updatedWorkflows = [...workflows, newWorkflow];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedWorkflows));
+        setWorkflows(updatedWorkflows);
+        toast.success("Workflow saved successfully!");
+        return newWorkflow;
       } catch (error) {
-        console.error("Failed to save template:", error);
-        toast.error("Failed to save template");
+        console.error("Failed to save workflow:", error);
+        toast.error("Failed to save workflow");
         return null;
       }
     }
@@ -133,8 +133,8 @@ export const useTemplateManager = () => {
     try {
       setIsLoading(true);
 
-      // Create a JSON file from the template data
-      const templateData = {
+      // Create a JSON file from the workflow data
+      const workflowData = {
         name,
         description,
         author,
@@ -143,7 +143,7 @@ export const useTemplateManager = () => {
         tags,
       };
 
-      const blob = new Blob([JSON.stringify(templateData, null, 2)], {
+      const blob = new Blob([JSON.stringify(workflowData, null, 2)], {
         type: "application/json",
       });
       const file = new File([blob], `${name.replace(/\s+/g, "_")}.json`, {
@@ -157,7 +157,7 @@ export const useTemplateManager = () => {
         author,
       });
 
-      const newTemplate: BehaviorTemplate = {
+      const newWorkflow: BehaviorWorkflow = {
         id: workflow.id,
         name: workflow.name,
         description: workflow.description,
@@ -169,29 +169,29 @@ export const useTemplateManager = () => {
         storage_link: workflow.storage_link,
       };
 
-      setTemplates([...templates, newTemplate]);
-      toast.success("Template saved successfully!");
-      return newTemplate;
+      setWorkflows([...workflows, newWorkflow]);
+      toast.success("Workflow saved successfully!");
+      return newWorkflow;
     } catch (error) {
-      console.error("Failed to save template:", error);
-      toast.error("Failed to save template to server");
+      console.error("Failed to save workflow:", error);
+      toast.error("Failed to save workflow to server");
       return null;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const deleteTemplate = async (id: string) => {
+  const deleteWorkflow = async (id: string) => {
     if (!USE_API) {
       // Fallback to local storage
       try {
-        const updatedTemplates = templates.filter((t) => t.id !== id);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedTemplates));
-        setTemplates(updatedTemplates);
-        toast.success("Template deleted");
+        const updatedWorkflows = workflows.filter((t) => t.id !== id);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedWorkflows));
+        setWorkflows(updatedWorkflows);
+        toast.success("Workflow deleted");
       } catch (error) {
-        console.error("Failed to delete template:", error);
-        toast.error("Failed to delete template");
+        console.error("Failed to delete workflow:", error);
+        toast.error("Failed to delete workflow");
       }
       return;
     }
@@ -200,32 +200,32 @@ export const useTemplateManager = () => {
     try {
       setIsLoading(true);
       await workflowApi.delete(id);
-      const updatedTemplates = templates.filter((t) => t.id !== id);
-      setTemplates(updatedTemplates);
-      toast.success("Template deleted");
+      const updatedWorkflows = workflows.filter((t) => t.id !== id);
+      setWorkflows(updatedWorkflows);
+      toast.success("Workflow deleted");
     } catch (error) {
-      console.error("Failed to delete template:", error);
-      toast.error("Failed to delete template from server");
+      console.error("Failed to delete workflow:", error);
+      toast.error("Failed to delete workflow from server");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const exportTemplate = async (template: BehaviorTemplate) => {
+  const exportWorkflow = async (workflow: BehaviorWorkflow) => {
     try {
-      let dataToExport = template;
+      let dataToExport = workflow;
 
-      // If using API and template has a storage link, fetch fresh data from storage
-      if (USE_API && template.storage_link) {
+      // If using API and workflow has a storage link, fetch fresh data from storage
+      if (USE_API && workflow.storage_link) {
         try {
           const freshContent = await workflowApi.fetchWorkflowContent(
-            template.storage_link
+            workflow.storage_link
           );
           dataToExport = {
-            ...template,
-            nodes: freshContent.nodes || template.nodes,
-            edges: freshContent.edges || template.edges,
-            tags: freshContent.tags || template.tags,
+            ...workflow,
+            nodes: freshContent.nodes || workflow.nodes,
+            edges: freshContent.edges || workflow.edges,
+            tags: freshContent.tags || workflow.tags,
           };
         } catch (error) {
           console.warn(
@@ -240,7 +240,7 @@ export const useTemplateManager = () => {
       const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(
         dataStr
       )}`;
-      const exportFileDefaultName = `${template.name.replace(
+      const exportFileDefaultName = `${workflow.name.replace(
         /\s+/g,
         "_"
       )}_behavior.json`;
@@ -249,16 +249,16 @@ export const useTemplateManager = () => {
       linkElement.setAttribute("href", dataUri);
       linkElement.setAttribute("download", exportFileDefaultName);
       linkElement.click();
-      toast.success("Template exported!");
+      toast.success("Workflow exported!");
     } catch (error) {
-      console.error("Failed to export template:", error);
-      toast.error("Failed to export template");
+      console.error("Failed to export workflow:", error);
+      toast.error("Failed to export workflow");
     }
   };
 
-  const importTemplate = async (
+  const importWorkflow = async (
     file: File
-  ): Promise<BehaviorTemplate | null> => {
+  ): Promise<BehaviorWorkflow | null> => {
     if (!USE_API) {
       // Fallback to local storage
       return new Promise((resolve) => {
@@ -266,37 +266,37 @@ export const useTemplateManager = () => {
           const reader = new FileReader();
           reader.onload = (e) => {
             try {
-              const template = JSON.parse(
+              const workflow = JSON.parse(
                 e.target?.result as string
-              ) as BehaviorTemplate;
-              // Validate template structure
-              if (!template.nodes || !template.edges || !template.name) {
-                toast.error("Invalid template format");
+              ) as BehaviorWorkflow;
+              // Validate workflow structure
+              if (!workflow.nodes || !workflow.edges || !workflow.name) {
+                toast.error("Invalid workflow format");
                 resolve(null);
                 return;
               }
-              // Add to templates
-              const updatedTemplates = [
-                ...templates,
-                { ...template, id: `template_${Date.now()}` },
+              // Add to workflows
+              const updatedWorkflows = [
+                ...workflows,
+                { ...workflow, id: `workflow_${Date.now()}` },
               ];
               localStorage.setItem(
                 STORAGE_KEY,
-                JSON.stringify(updatedTemplates)
+                JSON.stringify(updatedWorkflows)
               );
-              setTemplates(updatedTemplates);
-              toast.success("Template imported successfully!");
-              resolve(template);
+              setWorkflows(updatedWorkflows);
+              toast.success("Workflow imported successfully!");
+              resolve(workflow);
             } catch (error) {
-              console.error("Failed to parse template:", error);
-              toast.error("Invalid template file");
+              console.error("Failed to parse workflow:", error);
+              toast.error("Invalid workflow file");
               resolve(null);
             }
           };
           reader.readAsText(file);
         } catch (error) {
-          console.error("Failed to import template:", error);
-          toast.error("Failed to import template");
+          console.error("Failed to import workflow:", error);
+          toast.error("Failed to import workflow");
           resolve(null);
         }
       });
@@ -308,39 +308,39 @@ export const useTemplateManager = () => {
 
       // First, read the file to validate and extract metadata
       const fileContent = await file.text();
-      const templateData = JSON.parse(fileContent);
+      const workflowData = JSON.parse(fileContent);
 
-      // Validate template structure
-      if (!templateData.nodes || !templateData.edges || !templateData.name) {
-        toast.error("Invalid template format");
+      // Validate workflow structure
+      if (!workflowData.nodes || !workflowData.edges || !workflowData.name) {
+        toast.error("Invalid workflow format");
         return null;
       }
 
       // Upload to backend
       const workflow = await workflowApi.upload(file, {
-        name: templateData.name,
-        description: templateData.description || "Imported workflow",
-        author: templateData.author || "Unknown",
+        name: workflowData.name,
+        description: workflowData.description || "Imported workflow",
+        author: workflowData.author || "Unknown",
       });
 
-      const newTemplate: BehaviorTemplate = {
+      const newWorkflow: BehaviorWorkflow = {
         id: workflow.id,
         name: workflow.name,
         description: workflow.description,
         author: workflow.author,
         createdAt: new Date(workflow.created_at).toISOString(),
-        nodes: templateData.nodes,
-        edges: templateData.edges,
-        tags: templateData.tags || [],
+        nodes: workflowData.nodes,
+        edges: workflowData.edges,
+        tags: workflowData.tags || [],
         storage_link: workflow.storage_link,
       };
 
-      setTemplates([...templates, newTemplate]);
-      toast.success("Template imported successfully!");
-      return newTemplate;
+      setWorkflows([...workflows, newWorkflow]);
+      toast.success("Workflow imported successfully!");
+      return newWorkflow;
     } catch (error) {
-      console.error("Failed to import template:", error);
-      toast.error("Failed to import template to server");
+      console.error("Failed to import workflow:", error);
+      toast.error("Failed to import workflow to server");
       return null;
     } finally {
       setIsLoading(false);
@@ -348,12 +348,13 @@ export const useTemplateManager = () => {
   };
 
   return {
-    templates,
-    saveTemplate,
-    deleteTemplate,
-    exportTemplate,
-    importTemplate,
-    loadTemplates,
+    workflows,
+    saveWorkflow,
+    deleteWorkflow,
+    exportWorkflow,
+    importWorkflow,
+    loadWorkflows,
     isLoading,
   };
 };
+

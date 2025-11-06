@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { NavigationSidebar } from "@/components/NavigationSidebar";
 import Home from "./pages/Home";
-import Studio from "./pages/Studio";
+import WorkflowInfo from "./pages/WorkflowInfo";
 import Community from "./pages/Community";
 import NotFound from "./pages/NotFound";
 import Prerequisites from "./pages/documentation/Prerequisites";
@@ -29,7 +29,7 @@ const App = () => (
           <div className="flex-1 overflow-auto">
             <Routes>
               <Route path="/" element={<Home />} />
-              <Route path="/studio" element={<Studio />} />
+              <Route path="/workflow-info" element={<WorkflowInfo />} />
               <Route path="/community" element={<Community />} />
               <Route
                 path="/documentation/prerequisites"
