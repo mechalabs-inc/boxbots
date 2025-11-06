@@ -11,6 +11,13 @@ RUN npm ci
 FROM node:22-slim AS builder
 WORKDIR /app
 
+# Accept build argument for API URL
+ARG VITE_API_URL=""
+ENV VITE_API_URL=${VITE_API_URL}
+
+# Debug: Print the value to verify it's being passed (remove in production if needed)
+RUN echo "VITE_API_URL is set to: ${VITE_API_URL}"
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . ./
 RUN npm run build
