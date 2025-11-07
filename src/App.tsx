@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { NavigationSidebar } from "@/components/NavigationSidebar";
 import Home from "./pages/Home";
 import WorkflowInfo from "./pages/WorkflowInfo";
+import MotionLayer from "./pages/MotionLayer";
 import Community from "./pages/Community";
 import NotFound from "./pages/NotFound";
 import Prerequisites from "./pages/documentation/Prerequisites";
@@ -30,6 +31,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/workflow-info" element={<WorkflowInfo />} />
+              <Route path="/motion-layer" element={<MotionLayer />} />
               <Route path="/community" element={<Community />} />
               <Route
                 path="/documentation/prerequisites"

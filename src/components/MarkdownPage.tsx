@@ -7,12 +7,15 @@ const GITHUB_REPO_BASE =
 // Mapping from markdown filenames to routes
 const markdownToRoute: Record<string, string> = {
   "0.%20Prerequisites.md": "/documentation/prerequisites",
+  "1.%20Components%20Overview.md": "/documentation/3d-print",
   "1.%203D%20Print.md": "/documentation/3d-print",
   "2.%20Servos%20Setup.md": "/documentation/servos-setup",
   "3.%20LeLamp%20Assembly.md": "/documentation/lelamp-assembly",
   "4.%20LeLamp%20Setup.md": "/documentation/lelamp-setup",
   "5.%20LeLamp%20Control.md": "/documentation/lelamp-control",
   "6.%20Common%20Issues.md": "/documentation/common-issues",
+  "Motion%20layer.md": "/motion-layer",
+  "Workflows.md": "/workflow-info",
   "README.md": "/",
 };
 

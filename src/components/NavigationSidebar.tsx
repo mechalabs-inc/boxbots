@@ -11,6 +11,7 @@ import {
   Settings,
   PlayCircle,
   HelpCircle,
+  Move,
 } from "lucide-react";
 
 const documentationSections = [
@@ -19,7 +20,11 @@ const documentationSections = [
     path: "/documentation/prerequisites",
     icon: BookOpen,
   },
-  { title: "3D Print", path: "/documentation/3d-print", icon: Printer },
+  {
+    title: "Components Overview",
+    path: "/documentation/3d-print",
+    icon: Printer,
+  },
   { title: "Servos Setup", path: "/documentation/servos-setup", icon: Cog },
   {
     title: "LeLamp Assembly",
@@ -154,7 +159,7 @@ export const NavigationSidebar = () => {
         <Link
           to="/workflow-info"
           className={cn(
-            "group flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-all relative hover:bg-gray-50 mt-2",
+            "group flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-all relative hover:bg-gray-50",
             isActive("/workflow-info")
               ? "bg-orange-50 text-gray-900 border-l-4 border-l-orange-500 ml-0 pl-2 font-semibold"
               : "ml-1"
@@ -193,6 +198,28 @@ export const NavigationSidebar = () => {
           />
           <span className="transition-colors group-hover:text-gray-900">
             Community
+          </span>
+        </Link>
+        {/* Motion Layer */}
+        <Link
+          to="/motion-layer"
+          className={cn(
+            "group flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-all relative hover:bg-gray-50 mt-2",
+            isActive("/motion-layer")
+              ? "bg-orange-50 text-gray-900 border-l-4 border-l-orange-500 ml-0 pl-2 font-semibold"
+              : "ml-1"
+          )}
+        >
+          <Move
+            className={cn(
+              "h-4 w-4 transition-all",
+              isActive("/motion-layer")
+                ? "text-orange-600 stroke-[2.5]"
+                : "text-sidebar-foreground stroke-[2] group-hover:stroke-[2.4]"
+            )}
+          />
+          <span className="transition-colors group-hover:text-gray-900">
+            Motion Layer
           </span>
         </Link>
       </div>
